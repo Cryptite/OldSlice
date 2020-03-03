@@ -1,7 +1,7 @@
-From be0a80a1988fa12235c393c835a9c946301d56f5 Mon Sep 17 00:00:00 2001
+From 069e2f6cebde127807a12ed0f105eab7ff4788f8 Mon Sep 17 00:00:00 2001
 From: cryptite <cryptite@gmail.com>
 Date: Tue, 3 Mar 2020 10:36:03 -0600
-Subject: [PATCH] We're going with Slice
+Subject: [PATCH] Rename to Slice
 
 
 diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
