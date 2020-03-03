@@ -1,0 +1,24 @@
+From 5abe3e52fa8af2a1ad45967b4aee9346aa7684b9 Mon Sep 17 00:00:00 2001
+From: cryptite <cryptite@gmail.com>
+Date: Tue, 3 Mar 2020 10:51:18 -0600
+Subject: [PATCH] Read Only Worlds
+
+
+diff --git a/src/main/java/org/bukkit/World.java b/src/main/java/org/bukkit/World.java
+index 5047be15..e3d63f9c 100644
+--- a/src/main/java/org/bukkit/World.java
++++ b/src/main/java/org/bukkit/World.java
+@@ -42,6 +42,10 @@ import org.jetbrains.annotations.Nullable;
+  */
+ public interface World extends PluginMessageRecipient, Metadatable {
+ 
++    void setReadOnly(boolean readOnly);
++
++    boolean isReadOnly();
++
+     // Paper start
+     /**
+      * @return The amount of Entities in this world
+-- 
+2.21.0.windows.1
+

@@ -1,0 +1,31 @@
+From 096007c728ffd2b6d8c4db317b974bcfcfb02138 Mon Sep 17 00:00:00 2001
+From: cryptite <cryptite@gmail.com>
+Date: Tue, 3 Mar 2020 10:51:18 -0600
+Subject: [PATCH] Read Only Worlds
+
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+index a14b8cb9..a4c4aa4e 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+@@ -274,6 +274,17 @@ public class CraftWorld implements World {
+     private int animalSpawn = -1;
+     private int waterAnimalSpawn = -1;
+     private int ambientSpawn = -1;
++    private boolean readOnly;
++
++    @Override
++    public void setReadOnly(boolean readOnly) {
++        this.readOnly = readOnly;
++    }
++
++    @Override
++    public boolean isReadOnly() {
++        return readOnly;
++    }
+ 
+     // Paper start - Provide fast information methods
+     public int getEntityCount() {
+-- 
+2.21.0.windows.1
+
