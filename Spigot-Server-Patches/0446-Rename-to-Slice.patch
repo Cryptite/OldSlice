@@ -1,7 +1,7 @@
-From 3f0e8f98ea3d6fa8335806162868d8f610409522 Mon Sep 17 00:00:00 2001
+From c36ff3fc35a8f25e241d2d24bb5ff6c4ed95dcc0 Mon Sep 17 00:00:00 2001
 From: cryptite <cryptite@gmail.com>
 Date: Tue, 3 Mar 2020 10:36:03 -0600
-Subject: [PATCH] Rename to PaperLoka
+Subject: [PATCH] Rename to Slice
 
 
 diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
