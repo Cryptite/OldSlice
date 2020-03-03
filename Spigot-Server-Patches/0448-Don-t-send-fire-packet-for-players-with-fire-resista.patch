@@ -1,0 +1,26 @@
+From 68d217110c8a8cd2ab61b4bd393782f81c0cb4f6 Mon Sep 17 00:00:00 2001
+From: cryptite <cryptite@gmail.com>
+Date: Tue, 3 Mar 2020 11:49:12 -0600
+Subject: [PATCH] Don't send fire packet for players with fire resistance
+
+
+diff --git a/src/main/java/net/minecraft/server/Entity.java b/src/main/java/net/minecraft/server/Entity.java
+index 8974c16b..307eb897 100644
+--- a/src/main/java/net/minecraft/server/Entity.java
++++ b/src/main/java/net/minecraft/server/Entity.java
+@@ -442,7 +442,11 @@ public abstract class Entity implements INamableTileEntity, ICommandListener, Ke
+         // Paper end
+ 
+         if (!this.world.isClientSide) {
+-            this.setFlag(0, this.fireTicks > 0);
++            if (this instanceof EntityLiving) {
++                this.setFlag(0, this.fireTicks > 0 && !((EntityLiving) this).hasEffect(MobEffects.FIRE_RESISTANCE));
++            } else {
++                this.setFlag(0, this.fireTicks > 0);
++            }
+         }
+ 
+         this.justCreated = false;
+-- 
+2.21.0.windows.1
+
