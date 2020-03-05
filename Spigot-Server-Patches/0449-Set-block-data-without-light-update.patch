@@ -1,0 +1,126 @@
+From 213509f017bfa88891850c4eac1c088202d50ce6 Mon Sep 17 00:00:00 2001
+From: cryptite <cryptite@gmail.com>
+Date: Thu, 5 Mar 2020 12:13:27 -0600
+Subject: [PATCH] Set block data without light update
+
+
+diff --git a/src/main/java/net/minecraft/server/IWorldWriter.java b/src/main/java/net/minecraft/server/IWorldWriter.java
+index 9777624f..0d69fb8b 100644
+--- a/src/main/java/net/minecraft/server/IWorldWriter.java
++++ b/src/main/java/net/minecraft/server/IWorldWriter.java
+@@ -6,6 +6,8 @@ public interface IWorldWriter {
+ 
+     boolean setTypeAndData(BlockPosition blockposition, IBlockData iblockdata, int i);
+ 
++    boolean setTypeAndData(BlockPosition blockposition, IBlockData iblockdata, int i, boolean checkLight);
++
+     boolean a(BlockPosition blockposition, boolean flag);
+ 
+     default boolean b(BlockPosition blockposition, boolean flag) {
+diff --git a/src/main/java/net/minecraft/server/RegionLimitedWorldAccess.java b/src/main/java/net/minecraft/server/RegionLimitedWorldAccess.java
+index 9d0e8c2d..02f488cd 100644
+--- a/src/main/java/net/minecraft/server/RegionLimitedWorldAccess.java
++++ b/src/main/java/net/minecraft/server/RegionLimitedWorldAccess.java
+@@ -253,6 +253,11 @@ public class RegionLimitedWorldAccess implements GeneratorAccess {
+         return true;
+     }
+ 
++    @Override
++    public boolean setTypeAndData(BlockPosition blockposition, IBlockData iblockdata, int i, boolean checkLight) {
++        return setTypeAndData(blockposition, iblockdata, i);
++    }
++
+     private void e(BlockPosition blockposition) {
+         this.x(blockposition).e(blockposition);
+     }
+diff --git a/src/main/java/net/minecraft/server/World.java b/src/main/java/net/minecraft/server/World.java
+index baad9851..b3c191fb 100644
+--- a/src/main/java/net/minecraft/server/World.java
++++ b/src/main/java/net/minecraft/server/World.java
+@@ -329,6 +329,10 @@ public abstract class World implements GeneratorAccess, AutoCloseable {
+ 
+     @Override
+     public boolean setTypeAndData(BlockPosition blockposition, IBlockData iblockdata, int i) {
++        return setTypeAndData(blockposition, iblockdata, i, true);
++    }
++
++    public boolean setTypeAndData(BlockPosition blockposition, IBlockData iblockdata, int i, boolean checkLight) {
+         // CraftBukkit start - tree generation
+         if (this.captureTreeGeneration) {
+             CraftBlockState blockstate = capturedBlockStates.get(blockposition);
+@@ -370,7 +374,7 @@ public abstract class World implements GeneratorAccess, AutoCloseable {
+             } else {
+                 IBlockData iblockdata2 = this.getType(blockposition);
+ 
+-                if (iblockdata2 != iblockdata1 && (iblockdata2.b((IBlockAccess) this, blockposition) != iblockdata1.b((IBlockAccess) this, blockposition) || iblockdata2.h() != iblockdata1.h() || iblockdata2.g() || iblockdata1.g())) {
++                if (checkLight && iblockdata2 != iblockdata1 && (iblockdata2.b((IBlockAccess) this, blockposition) != iblockdata1.b((IBlockAccess) this, blockposition) || iblockdata2.h() != iblockdata1.h() || iblockdata2.g() || iblockdata1.g())) {
+                     this.methodProfiler.enter("queueCheckLight");
+                     this.getChunkProvider().getLightEngine().a(blockposition);
+                     this.methodProfiler.exit();
+diff --git a/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java b/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java
+index 78e84c3d..69810f86 100644
+--- a/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java
++++ b/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java
+@@ -171,11 +171,20 @@ public class CraftBlock implements Block {
+ 
+     @Override
+     public void setBlockData(BlockData data, boolean applyPhysics) {
++        setBlockData(data, applyPhysics, true);
++    }
++
++    @Override
++    public void setBlockData(BlockData data, boolean applyPhysics, boolean checkLight) {
+         Preconditions.checkArgument(data != null, "BlockData cannot be null");
+         setTypeAndData(((CraftBlockData) data).getState(), applyPhysics);
+     }
+ 
+     public boolean setTypeAndData(final IBlockData blockData, final boolean applyPhysics) {
++        return setTypeAndData(blockData, applyPhysics, true);
++    }
++
++    public boolean setTypeAndData(final IBlockData blockData, final boolean applyPhysics, boolean checkLight) {
+         // SPIGOT-611: need to do this to prevent glitchiness. Easier to handle this here (like /setblock) than to fix weirdness in tile entity cleanup
+         if (!blockData.isAir() && blockData.getBlock() instanceof BlockTileEntity && blockData.getBlock() != getNMSBlock()) {
+             // SPIGOT-4612: faster - just clear tile
+@@ -187,16 +196,16 @@ public class CraftBlock implements Block {
+         }
+ 
+         if (applyPhysics) {
+-            return world.setTypeAndData(position, blockData, 3);
++            return world.setTypeAndData(position, blockData, 3, checkLight);
+         } else {
+             IBlockData old = world.getType(position);
+-            boolean success = world.setTypeAndData(position, blockData, 2 | 16 | 1024); // NOTIFY | NO_OBSERVER | NO_PLACE (custom)
++            boolean success = world.setTypeAndData(position, blockData, 2 | 16 | 1024, checkLight); // NOTIFY | NO_OBSERVER | NO_PLACE (custom)
+             if (success) {
+                 world.getMinecraftWorld().notify(
+-                        position,
+-                        old,
+-                        blockData,
+-                        3
++                    position,
++                    old,
++                    blockData,
++                    3
+                 );
+             }
+             return success;
+diff --git a/src/main/java/org/bukkit/craftbukkit/util/DummyGeneratorAccess.java b/src/main/java/org/bukkit/craftbukkit/util/DummyGeneratorAccess.java
+index d0b81300..9e4dc477 100644
+--- a/src/main/java/org/bukkit/craftbukkit/util/DummyGeneratorAccess.java
++++ b/src/main/java/org/bukkit/craftbukkit/util/DummyGeneratorAccess.java
+@@ -187,6 +187,11 @@ public class DummyGeneratorAccess implements GeneratorAccess {
+         return false;
+     }
+ 
++    @Override
++    public boolean setTypeAndData(BlockPosition blockposition, IBlockData iblockdata, int i, boolean checkLight) {
++        return false;
++    }
++
+     @Override
+     public boolean a(BlockPosition blockposition, boolean flag) {
+         throw new UnsupportedOperationException("Not supported yet.");
+-- 
+2.21.0.windows.1
+

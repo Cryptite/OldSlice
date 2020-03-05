@@ -1,0 +1,42 @@
+From e49d5c5cb6c127ca6949b69c8af32116254cfe8d Mon Sep 17 00:00:00 2001
+From: cryptite <cryptite@gmail.com>
+Date: Thu, 5 Mar 2020 12:13:28 -0600
+Subject: [PATCH] Set block data without light update
+
+
+diff --git a/src/main/java/org/bukkit/block/Block.java b/src/main/java/org/bukkit/block/Block.java
+index a14a7583..73c05b6a 100644
+--- a/src/main/java/org/bukkit/block/Block.java
++++ b/src/main/java/org/bukkit/block/Block.java
+@@ -276,6 +276,28 @@ public interface Block extends Metadatable {
+      */
+     void setBlockData(@NotNull BlockData data, boolean applyPhysics);
+ 
++    /**
++     * Sets the complete data for this block
++     *
++     * <br>
++     * Note that applyPhysics = false is not in general safe. It should only be
++     * used when you need to avoid triggering a physics update of neighboring
++     * blocks, for example when creating a {@link Bisected} block. If you are
++     * using a custom populator, then this parameter may also be required to
++     * prevent triggering infinite chunk loads on border blocks. This method
++     * should NOT be used to "hack" physics by placing blocks in impossible
++     * locations. Such blocks are liable to be removed on various events such as
++     * world upgrades. Furthermore setting large amounts of such blocks in close
++     * proximity may overload the server physics engine if an update is
++     * triggered at a later point. If this occurs, the resulting behavior is
++     * undefined.
++     *
++     * @param data new block specific data
++     * @param applyPhysics false to cancel physics from the changed block
++     * @param checkLight false to prevent a light-check update
++     */
++    void setBlockData(@NotNull BlockData data, boolean applyPhysics, boolean checkLight);
++
+     /**
+      * Sets the type of this block
+      *
+-- 
+2.21.0.windows.1
+
