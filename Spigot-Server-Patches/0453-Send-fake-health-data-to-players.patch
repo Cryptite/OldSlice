@@ -1,0 +1,95 @@
+From c253689eb07f9e63475f9c1b2cc63158f94e440d Mon Sep 17 00:00:00 2001
+From: Tom <cryptite@gmail.com>
+Date: Thu, 25 Jul 2019 09:05:19 -0500
+Subject: [PATCH] Send fake health data to players
+
+Minecraft sends a ton of information about entities to players in the form of the Entity Metadata packet. This includes,
+among other things, a player's health. It is not necessary for your average player to know this information, especially
+since players with mods and hacked clients use health indicators to know the health of other players
+(not possible in vanilla).
+
+As a result, unless the viewing player is in Spectator mode, we will override the health in the metadata packet to
+maxHealth so long as the player's health is over 0 (at 0 they're dead and need that packet). This effectively obfuscates
+health for players who shouldn't otherwise be able to tell the health of other players.
+
+diff --git a/src/main/java/net/minecraft/server/DataWatcher.java b/src/main/java/net/minecraft/server/DataWatcher.java
+index 51a02edf..667f3ad0 100644
+--- a/src/main/java/net/minecraft/server/DataWatcher.java
++++ b/src/main/java/net/minecraft/server/DataWatcher.java
+@@ -31,6 +31,10 @@ public class DataWatcher {
+         this.c = entity;
+     }
+ 
++    public Entity getEntity() {
++        return c;
++    }
++
+     public static <T> DataWatcherObject<T> a(Class<? extends Entity> oclass, DataWatcherSerializer<T> datawatcherserializer) {
+         if (DataWatcher.a.isDebugEnabled()) {
+             try {
+diff --git a/src/main/java/net/minecraft/server/PacketPlayOutEntityMetadata.java b/src/main/java/net/minecraft/server/PacketPlayOutEntityMetadata.java
+index fdf19d1f..3bfb4b58 100644
+--- a/src/main/java/net/minecraft/server/PacketPlayOutEntityMetadata.java
++++ b/src/main/java/net/minecraft/server/PacketPlayOutEntityMetadata.java
+@@ -7,18 +7,19 @@ public class PacketPlayOutEntityMetadata implements Packet<PacketListenerPlayOut
+ 
+     private int a;
+     private List<DataWatcher.Item<?>> b;
++    private DataWatcher dataWatcher;
+ 
+     public PacketPlayOutEntityMetadata() {}
+ 
+     public PacketPlayOutEntityMetadata(int i, DataWatcher datawatcher, boolean flag) {
+         this.a = i;
++        this.dataWatcher = datawatcher;
+         if (flag) {
+             this.b = datawatcher.c();
+             datawatcher.e();
+         } else {
+             this.b = datawatcher.b();
+         }
+-
+     }
+ 
+     public void a(PacketDataSerializer packetdataserializer) throws IOException {
+@@ -34,4 +35,12 @@ public class PacketPlayOutEntityMetadata implements Packet<PacketListenerPlayOut
+     public void a(PacketListenerPlayOut packetlistenerplayout) {
+         packetlistenerplayout.a(this);
+     }
++
++    public DataWatcher getDataWatcher() {
++        return dataWatcher;
++    }
++
++    public void apply(DataWatcher dataWatcher) {
++        this.b = dataWatcher.b();
++    }
+ }
+diff --git a/src/main/java/net/minecraft/server/PlayerConnection.java b/src/main/java/net/minecraft/server/PlayerConnection.java
+index 550ca13e..8351793d 100644
+--- a/src/main/java/net/minecraft/server/PlayerConnection.java
++++ b/src/main/java/net/minecraft/server/PlayerConnection.java
+@@ -1502,6 +1502,20 @@ public class PlayerConnection implements PacketListenerPlayIn, ITickable {
+         }
+         // CraftBukkit end
+ 
++        // PaperLoka - Spoof health packet unless the receiving player is in spectator mode
++        if (!player.isSpectator() && packet instanceof PacketPlayOutEntityMetadata) {
++            PacketPlayOutEntityMetadata metadataPacket = (PacketPlayOutEntityMetadata) packet;
++            DataWatcher watcher = metadataPacket.getDataWatcher();
++            Entity entity = watcher.getEntity();
++            if (!player.equals(entity)
++                    && entity instanceof EntityPlayer
++                    && ((EntityPlayer) entity).getHealth() > 0) {
++                float maxHealth = ((EntityPlayer) entity).getMaxHealth();
++                watcher.set(EntityLiving.HEALTH, maxHealth);
++                metadataPacket.apply(watcher);
++            }
++        }
++
+         try {
+             this.networkManager.sendPacket(packet, genericfuturelistener);
+         } catch (Throwable throwable) {
+-- 
+2.17.1.windows.2
+

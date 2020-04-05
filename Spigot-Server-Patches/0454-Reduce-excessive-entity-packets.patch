@@ -1,0 +1,27 @@
+From ba93068c27f559139c9c458e40e25dc2c73c9638 Mon Sep 17 00:00:00 2001
+From: Tom <cryptite@gmail.com>
+Date: Sun, 5 Apr 2020 07:42:44 -0500
+Subject: [PATCH] Reduce excessive entity packets
+
+
+diff --git a/src/main/java/net/minecraft/server/EntityLiving.java b/src/main/java/net/minecraft/server/EntityLiving.java
+index 4d5459d2..2338e0e0 100644
+--- a/src/main/java/net/minecraft/server/EntityLiving.java
++++ b/src/main/java/net/minecraft/server/EntityLiving.java
+@@ -2240,7 +2240,12 @@ public abstract class EntityLiving extends Entity {
+                     new PlayerArmorChangeEvent((Player) this.getBukkitEntity(), PlayerArmorChangeEvent.SlotType.valueOf(enumitemslot.name()), oldItem, newItem).callEvent();
+                 }
+                 // Paper end
+-                ((WorldServer) this.world).getTracker().a((Entity) this, (Packet) (new PacketPlayOutEntityEquipment(this.getId(), enumitemslot, itemstack1)));
++
++                //Only send equipment packets of item is different or broken. Ignoring casual durability changes spams WAY too many packets
++                if (itemstack.getDamage() >= itemstack.getItem().getMaxDurability() || !itemstack.doMaterialsMatch(itemstack1)) {
++                    ((WorldServer) this.world).getTracker().a((Entity) this, (Packet) (new PacketPlayOutEntityEquipment(this.getId(), enumitemslot, itemstack1)));
++                }
++
+                 if (!itemstack.isEmpty()) {
+                     this.getAttributeMap().a(itemstack.a(enumitemslot));
+                 }
+-- 
+2.17.1.windows.2
+
