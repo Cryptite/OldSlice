@@ -1,0 +1,185 @@
+From c814d04297b773b6ac50f9e79c3ce7e97d307077 Mon Sep 17 00:00:00 2001
+From: Tom <cryptite@gmail.com>
+Date: Mon, 6 Apr 2020 07:10:59 -0500
+Subject: [PATCH] Cull unnecessary health packets
+
+
+diff --git a/src/main/java/net/minecraft/server/EntityTrackerEntry.java b/src/main/java/net/minecraft/server/EntityTrackerEntry.java
+index 5629f9909..9c0f8d90d 100644
+--- a/src/main/java/net/minecraft/server/EntityTrackerEntry.java
++++ b/src/main/java/net/minecraft/server/EntityTrackerEntry.java
+@@ -10,8 +10,11 @@ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
+ 
+ // CraftBukkit start
++import org.bukkit.craftbukkit.CraftServer;
++import org.bukkit.craftbukkit.entity.CraftEntity;
+ import org.bukkit.entity.Player;
+ import org.bukkit.event.player.PlayerVelocityEvent;
++import org.bukkit.util.Vector;
+ // CraftBukkit end
+ 
+ public class EntityTrackerEntry {
+@@ -41,6 +44,11 @@ public class EntityTrackerEntry {
+     private boolean x;
+     private boolean y;
+     public boolean b;
++
++    //PaperLoka
++//    private java.util.Map<EntityPlayer, Long> lookUpdates = new java.util.HashMap<>();
++//    private java.util.Map<EntityPlayer, Long> moveUpdates = new java.util.HashMap<>();
++
+     // Paper start
+     // Replace trackedPlayers Set with a Map. The value is true until the player receives
+     // their first update (which is forced to have absolute coordinates), false afterward.
+@@ -51,10 +59,56 @@ public class EntityTrackerEntry {
+      * Requested in https://github.com/PaperMC/Paper/issues/1537 to allow intercepting packets
+      */
+     public void sendPlayerPacket(EntityPlayer player, Packet packet) {
++        //PaperLoka - Look culling
++//        if (CraftServer.cullPackets) {
++//            if (packet instanceof PacketPlayOutEntity.PacketPlayOutEntityLook
++//                || packet instanceof PacketPlayOutEntityHeadRotation) {
++//                long lastLookUpdate = lookUpdates.getOrDefault(player, 0L);
++//                if (!shouldSendPacket(tracker, player, lastLookUpdate, 200, 500, 1024, 2304))
++//                    return;
++//
++//                lookUpdates.put(player, System.currentTimeMillis());
++//            } else if (packet instanceof PacketPlayOutEntity.PacketPlayOutRelEntityMove) {
++//                long lastLookUpdate = moveUpdates.getOrDefault(player, 0L);
++//                if (!shouldSendPacket(tracker, player, lastLookUpdate, 100, 250, 1764, 2500))
++//                    return;
++//
++//                moveUpdates.put(player, System.currentTimeMillis());
++//            }
++//        }
++
+         player.playerConnection.sendPacket(packet);
+     }
+     // Paper end
+ 
++    private boolean shouldSendPacket(Entity viewer, Entity player, long lastSent, long quickDelay, long slowDelay, int quickDistance, int slowDistance) {
++        if (lastSent == 0) {
++            return true;
++        } else {
++            long now = System.currentTimeMillis();
++            double distance = MCUtil.distanceSq(viewer, player);
++            if (distance >= slowDistance) {
++                boolean outsideFOV = isOutsidePlayerFOV(player, viewer, .5D);
++                return (now - lastSent) >= slowDelay * (outsideFOV ? 2 : 1);
++            } else if (distance >= quickDistance) {
++                boolean outsideFOV = isOutsidePlayerFOV(player, viewer, .5D);
++                return (now - lastSent) >= quickDelay * (outsideFOV ? 2 : 1);
++            }
++        }
++
++        return true;
++    }
++
++    private boolean isOutsidePlayerFOV(Entity viewer, Entity target, final double dotProductPrecision) {
++        CraftEntity viewerPlayer = viewer.getBukkitEntity();
++        CraftEntity targetPlayer = target.getBukkitEntity();
++
++        Vector viewerDirection = viewerPlayer.getLocation().getDirection().normalize();
++        Vector playerVector = viewerPlayer.getLocation().toVector();
++        Vector midPoint = targetPlayer.getLocation().toVector().subtract(playerVector).normalize();
++        return midPoint.dot(viewerDirection) < dotProductPrecision;
++    }
++
+     public EntityTrackerEntry(Entity entity, int i, int j, int k, boolean flag) {
+         entity.tracker = this; // Paper
+         this.tracker = entity;
+@@ -320,8 +374,8 @@ public class EntityTrackerEntry {
+ 
+         while (iterator.hasNext()) {
+             EntityPlayer entityplayer = (EntityPlayer) iterator.next();
+-
+-            entityplayer.playerConnection.sendPacket(packet);
++            sendPlayerPacket(entityplayer, packet);
++//            entityplayer.playerConnection.sendPacket(packet);
+         }
+ 
+     }
+@@ -476,6 +530,7 @@ public class EntityTrackerEntry {
+ 
+         return isInRangeOfPlayer(entityplayer);
+     }
++
+     private static boolean hasPassengerInRange(Entity entity, EntityPlayer entityplayer) {
+         if (!entity.isVehicle()) {
+             return false;
+diff --git a/src/main/java/net/minecraft/server/PlayerConnection.java b/src/main/java/net/minecraft/server/PlayerConnection.java
+index 8351793de..bef245f0a 100644
+--- a/src/main/java/net/minecraft/server/PlayerConnection.java
++++ b/src/main/java/net/minecraft/server/PlayerConnection.java
+@@ -1503,18 +1503,18 @@ public class PlayerConnection implements PacketListenerPlayIn, ITickable {
+         // CraftBukkit end
+ 
+         // PaperLoka - Spoof health packet unless the receiving player is in spectator mode
+-        if (!player.isSpectator() && packet instanceof PacketPlayOutEntityMetadata) {
+-            PacketPlayOutEntityMetadata metadataPacket = (PacketPlayOutEntityMetadata) packet;
+-            DataWatcher watcher = metadataPacket.getDataWatcher();
+-            Entity entity = watcher.getEntity();
+-            if (!player.equals(entity)
+-                    && entity instanceof EntityPlayer
+-                    && ((EntityPlayer) entity).getHealth() > 0) {
+-                float maxHealth = ((EntityPlayer) entity).getMaxHealth();
+-                watcher.set(EntityLiving.HEALTH, maxHealth);
+-                metadataPacket.apply(watcher);
+-            }
+-        }
++//        if (!player.isSpectator() && packet instanceof PacketPlayOutEntityMetadata) {
++//            PacketPlayOutEntityMetadata metadataPacket = (PacketPlayOutEntityMetadata) packet;
++//            DataWatcher watcher = metadataPacket.getDataWatcher();
++//            Entity entity = watcher.getEntity();
++//            if (!player.equals(entity)
++//                    && entity instanceof EntityPlayer
++//                    && ((EntityPlayer) entity).getHealth() > 0) {
++//                float maxHealth = ((EntityPlayer) entity).getMaxHealth();
++//                watcher.set(EntityLiving.HEALTH, maxHealth);
++//                metadataPacket.apply(watcher);
++//            }
++//        }
+ 
+         try {
+             this.networkManager.sendPacket(packet, genericfuturelistener);
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+index 65a42e358..269f879f7 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+@@ -207,6 +207,11 @@ public final class CraftServer implements Server {
+     private final List<CraftPlayer> playerView;
+     public int reloadCount;
+     public static Exception excessiveVelEx; // Paper - Velocity warnings
++    public static boolean cullPackets = true;
++
++    public static void setCullPackets(boolean cull) {
++        cullPackets = cull;
++    }
+ 
+     private final class BooleanWrapper {
+         private boolean value = true;
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+index eb5971ac1..22ba190f2 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+@@ -1710,9 +1710,14 @@ public class CraftPlayer extends CraftHumanEntity implements Player {
+                 sendHealthUpdate();
+             }
+         }
+-        getHandle().getDataWatcher().set(EntityLiving.HEALTH, (float) getScaledHealth());
+ 
+-        getHandle().maxHealthCache = getMaxHealth();
++        float scaledHealth = getScaledHealth();
++        double maxHealth = getMaxHealth();
++        if (CraftServer.cullPackets && (scaledHealth <= 0 || scaledHealth >= maxHealth)) {
++            getHandle().getDataWatcher().set(EntityLiving.HEALTH, scaledHealth);
++        }
++
++        getHandle().maxHealthCache = maxHealth;
+     }
+ 
+     public void sendHealthUpdate() {
+-- 
+2.17.1.windows.2
+
