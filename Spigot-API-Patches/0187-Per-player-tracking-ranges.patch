@@ -1,0 +1,26 @@
+From 7dac2d197e442e0cb2b6399ef8f3a26d9a78a8e8 Mon Sep 17 00:00:00 2001
+From: Tom <cryptite@gmail.com>
+Date: Wed, 15 Apr 2020 08:38:28 -0500
+Subject: [PATCH] Per-player tracking ranges
+
+
+diff --git a/src/main/java/org/bukkit/entity/Player.java b/src/main/java/org/bukkit/entity/Player.java
+index 1b3a6a91..0084b176 100644
+--- a/src/main/java/org/bukkit/entity/Player.java
++++ b/src/main/java/org/bukkit/entity/Player.java
+@@ -1944,6 +1944,12 @@ public interface Player extends HumanEntity, Conversable, OfflinePlayer, PluginM
+     void resetCooldown();
+     // Paper end
+ 
++    // Slice
++    int getPlayerTrackingRange();
++
++    void setPlayerTrackingRange(int range);
++    // Slice end
++
+     // Spigot start
+     public class Spigot extends Entity.Spigot
+     {
+-- 
+2.17.1.windows.2
+
